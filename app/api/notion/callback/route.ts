@@ -3,17 +3,28 @@ import { createClient } from "@/lib/supabase/server";
 import { exchangeNotionCode } from "@/lib/notion/client";
 
 /**
+ * Derive the public origin from the request (Vercel sets x-forwarded-* headers).
+ */
+function getOrigin(request: NextRequest): string {
+  const host =
+    request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  if (host) return `${proto}://${host}`;
+  return new URL(request.url).origin;
+}
+
+/**
  * GET /api/notion/callback
  * Notion OAuth redirect target. Exchanges the code for an access token and
  * stores it on the user's profile, then returns to /workspace.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
   const state = searchParams.get("state");
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+  const appUrl = getOrigin(request);
 
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/workspace?error=notion_denied`);
@@ -35,7 +46,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const token = await exchangeNotionCode(code);
+    // redirect_uri must EXACTLY match the one used to start the flow.
+    const redirectUri = `${appUrl}/api/notion/callback`;
+    const token = await exchangeNotionCode(code, redirectUri);
 
     const { error: updateError } = await supabase
       .from("users")

@@ -14,13 +14,15 @@ export function createNotionClient(accessToken: string): Client {
 /**
  * Build the Notion OAuth authorize URL.
  * `state` is a CSRF token that must be echoed back and verified in the callback.
+ * `redirectUri` is derived from the incoming request origin so it always matches
+ * the domain the user is actually on (localhost in dev, the Vercel URL in prod).
  */
-export function getNotionAuthUrl(state: string): string {
+export function getNotionAuthUrl(state: string, redirectUri: string): string {
   const params = new URLSearchParams({
     client_id: process.env.NOTION_CLIENT_ID!,
     response_type: "code",
     owner: "user",
-    redirect_uri: process.env.NOTION_REDIRECT_URI!,
+    redirect_uri: redirectUri,
     state,
   });
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
@@ -36,9 +38,11 @@ export interface NotionTokenResponse {
 
 /**
  * Exchange an OAuth code for an access token via Notion's token endpoint.
+ * `redirectUri` MUST be the exact same value used in getNotionAuthUrl.
  */
 export async function exchangeNotionCode(
-  code: string
+  code: string,
+  redirectUri: string
 ): Promise<NotionTokenResponse> {
   const credentials = Buffer.from(
     `${process.env.NOTION_CLIENT_ID}:${process.env.NOTION_CLIENT_SECRET}`
@@ -54,7 +58,7 @@ export async function exchangeNotionCode(
     body: JSON.stringify({
       grant_type: "authorization_code",
       code,
-      redirect_uri: process.env.NOTION_REDIRECT_URI!,
+      redirect_uri: redirectUri,
     }),
   });
 
