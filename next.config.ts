@@ -4,9 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // ESLint is a dev/CI concern — don't let lint style rules block a deploy.
   // (Type-checking still runs and WILL fail the build on real type errors.)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  
   images: {
     remotePatterns: [
       // Google profile avatars
